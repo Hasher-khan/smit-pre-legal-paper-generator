@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .font-legal {
+    font-family: 'EB Garamond', Georgia, Cambria, serif;
+  }
+  .font-serif-header {
+    font-family: 'Cinzel', Georgia, serif;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Print specific styles for legal paper export */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+
+  .print-document-only {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    background: white !important;
+    color: black !important;
+    font-size: 11pt !important;
+    line-height: 1.5 !important;
+  }
+
+  .print-document-only * {
+    color: black !important;
+    background: transparent !important;
+  }
+
+  @page {
+    margin: 20mm;
+    size: letter;
+  }
+}
+
+/* Subtle pulse glow */
+@keyframes glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.animate-glow {
+  animation: glow 4s infinite ease-in-out;
+}
