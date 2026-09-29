@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PersistentWarningBox from './PersistentWarningBox';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { generateLegalPdf } from '../../utils/pdfGenerator';
 import { 
   Sparkles, Copy, Download, Printer, Edit3, Check, RefreshCw, 
   ShieldCheck, FileText, ArrowLeft, Eye, FileCheck2, Loader2, AlertTriangle
@@ -136,67 +135,20 @@ export default function Step3OutputDashboard({
     URL.revokeObjectURL(url);
   };
 
-  // PDF Export — captures the white legal canvas with html2canvas + jsPDF
-  const handleExportPdf = async () => {
-    if (!documentRef.current) {
-      alert('Document canvas not found. Please try again.');
+  // PDF Export — generates clean, crisp, publication-grade vector PDF directly
+  const handleExportPdf = () => {
+    if (!activeDoc) {
+      alert('No document data available to export.');
       return;
     }
     setIsExportingPdf(true);
     setPdfError(null);
 
     try {
-      const element = documentRef.current;
-
-      // Temporarily ensure the element is fully visible for capture
-      const originalDisplay = element.style.display;
-      element.style.display = 'block';
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        windowWidth: 900,
-      });
-
-      element.style.display = originalDisplay;
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidthPx = canvas.width;
-      const imgHeightPx = canvas.height;
-      const ratio = pdfWidth / imgWidthPx;
-      const imgHeightMm = imgHeightPx * ratio;
-
-      let yOffset = 0;
-      let heightLeft = imgHeightMm;
-
-      // First page
-      pdf.addImage(imgData, 'JPEG', 0, yOffset, pdfWidth, imgHeightMm);
-      heightLeft -= pdfHeight;
-
-      // Additional pages if content overflows
-      while (heightLeft > 0) {
-        yOffset = heightLeft - imgHeightMm;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, yOffset, pdfWidth, imgHeightMm);
-        heightLeft -= pdfHeight;
-      }
-
-      const safeName = (activeDoc?.docTitle || 'document').toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      pdf.save(`${safeName}_${activeDoc?.docRefId || 'draft'}.pdf`);
+      generateLegalPdf(activeDoc);
     } catch (err) {
       console.error('PDF Generation Error:', err);
-      setPdfError('PDF export failed. Trying browser print...');
+      setPdfError('Direct PDF export failed. Opening browser print dialog...');
       setTimeout(() => {
         window.print();
         setPdfError(null);
