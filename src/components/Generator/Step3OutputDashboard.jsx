@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PersistentWarningBox from './PersistentWarningBox';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { 
   Sparkles, Copy, Download, Printer, Edit3, Check, RefreshCw, 
-  ShieldCheck, FileText, ArrowLeft, Eye, FileCheck2, Loader2
+  ShieldCheck, FileText, ArrowLeft, Eye, FileCheck2, Loader2, AlertTriangle
 } from 'lucide-react';
 
 export default function Step3OutputDashboard({ 
@@ -15,150 +15,192 @@ export default function Step3OutputDashboard({
 }) {
   const [copied, setCopied] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [editableDoc, setEditableDoc] = useState(documentData);
+  const [editableDoc, setEditableDoc] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStepText, setLoadingStepText] = useState("Initializing legal drafting sequence...");
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState(null);
   const [selectedClauseInspection, setSelectedClauseInspection] = useState(null);
 
   const documentRef = useRef(null);
 
   useEffect(() => {
     if (documentData) {
-      setEditableDoc(documentData);
+      setEditableDoc(JSON.parse(JSON.stringify(documentData)));
     }
   }, [documentData]);
 
-  // Simulated drafting sequence animation
+  // Simulated drafting animation
   useEffect(() => {
     if (isGenerating) {
-      setLoadingProgress(25);
+      setLoadingProgress(10);
       setLoadingStepText("Applying statutory rules for jurisdiction...");
       
       const t1 = setTimeout(() => {
-        setLoadingProgress(65);
+        setLoadingProgress(45);
         setLoadingStepText("Structuring legal recitals and defined terms...");
-      }, 400);
+      }, 350);
 
       const t2 = setTimeout(() => {
+        setLoadingProgress(80);
+        setLoadingStepText("Composing operative clauses and signature blocks...");
+      }, 700);
+
+      const t3 = setTimeout(() => {
         setLoadingProgress(100);
-        setLoadingStepText("Finalizing document reference and PDF layout...");
-      }, 900);
+        setLoadingStepText("Finalizing document and preparing PDF layout...");
+      }, 1000);
 
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
+        clearTimeout(t3);
       };
+    } else {
+      setLoadingProgress(0);
     }
   }, [isGenerating]);
 
-  // Fallback active document object
   const activeDoc = editableDoc || documentData;
 
   if (!activeDoc && !isGenerating) {
     return (
-      <div className="text-center py-12 space-y-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-8">
-        <p className="text-slate-300 text-sm">No document generated yet. Please enter your details in Step 2.</p>
+      <div className="text-center py-16 space-y-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-8">
+        <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto" />
+        <p className="text-slate-300 text-sm">No document generated yet. Please fill in your details in Step 2.</p>
         <button 
           onClick={onBackToForm} 
-          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition-all"
+          className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-sm transition-all"
         >
-          &larr; Return to Step 2: Fill Details
+          ← Return to Step 2
         </button>
       </div>
     );
   }
 
-  // Build full raw text representation
+  // Build full plain text for copy/download
   const getFullTextDocument = () => {
     const doc = activeDoc;
     if (!doc) return "";
-
-    let fullText = `${doc.docTitle}\nRef ID: ${doc.docRefId}\nDate: ${doc.dateStr}\n\n`;
-    fullText += `--- RECITALS & PARTIES ---\n${doc.recitals}\n\n`;
+    let fullText = `${doc.docTitle}\n`;
+    fullText += `${'═'.repeat(60)}\n`;
+    fullText += `Reference ID: ${doc.docRefId}\n`;
+    fullText += `Date: ${doc.dateStr}\n`;
+    fullText += `Jurisdiction: ${doc.jurisdictionName}\n`;
+    fullText += `Tone / Style: ${doc.toneName}\n`;
+    fullText += `${'═'.repeat(60)}\n\n`;
+    fullText += `RECITALS AND PARTIES\n${'─'.repeat(40)}\n${doc.recitals}\n\n`;
     
     if (doc.definedTerms && doc.definedTerms.length > 0) {
-      fullText += `--- DEFINED TERMS ---\n`;
+      fullText += `DEFINED TERMS\n${'─'.repeat(40)}\n`;
       doc.definedTerms.forEach(dt => {
         fullText += `"${dt.term}": ${dt.definition}\n`;
       });
       fullText += `\n`;
     }
 
-    fullText += `--- OPERATIVE CLAUSES ---\n`;
+    fullText += `OPERATIVE CLAUSES\n${'─'.repeat(40)}\n`;
     if (doc.operativeClauses) {
       doc.operativeClauses.forEach(clause => {
         fullText += `${clause.num}\n${clause.content}\n\n`;
       });
     }
 
-    fullText += `--- GOVERNING LAW & ARBITRATION ---\n${doc.disputeResolution}\n\n`;
-    fullText += `--- EXECUTION & SIGNATURES ---\n${doc.closingText}\n\n`;
-    fullText += `PARTY A: ${doc.partyA}\nBy: _______________________\n\n`;
-    fullText += `PARTY B: ${doc.partyB}\nBy: _______________________\n\n`;
-    fullText += `\nDisclaimer: Generated on LegalGen AI. Attorney review required prior to execution.`;
+    fullText += `GOVERNING LAW AND ARBITRATION\n${'─'.repeat(40)}\n${doc.disputeResolution}\n\n`;
+    fullText += `EXECUTION AND SIGNATURES\n${'─'.repeat(40)}\n${doc.closingText}\n\n`;
+    fullText += `PARTY A: ${doc.partyA}\nBy: _______________________\nName: ${doc.partyA}\nTitle: Authorized Signatory\nDate: ${doc.dateStr}\n\n`;
+    fullText += `PARTY B: ${doc.partyB}\nBy: _______________________\nName: ${doc.partyB}\nTitle: Authorized Signatory\nDate: ${doc.dateStr}\n\n`;
+    fullText += `${'═'.repeat(60)}\nGenerated by LegalGen AI — Attorney review required before signing.`;
     return fullText;
   };
 
   const handleCopy = () => {
     const text = getFullTextDocument();
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
   };
 
-  const handleDownloadText = (format) => {
+  const handleDownloadText = () => {
     const text = getFullTextDocument();
-    const blob = new Blob([text], { type: format === 'md' ? 'text/markdown' : 'text/plain' });
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${(activeDoc?.docTitle || 'document').toLowerCase().replace(/[^a-z0-9]/g, '_')}_${activeDoc?.docRefId || 'draft'}.${format}`;
+    const safeName = (activeDoc?.docTitle || 'document').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    a.download = `${safeName}_${activeDoc?.docRefId || 'draft'}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  // Direct PDF Export using jsPDF + html2canvas
+  // PDF Export — captures the white legal canvas with html2canvas + jsPDF
   const handleExportPdf = async () => {
-    if (!documentRef.current) return;
+    if (!documentRef.current) {
+      alert('Document canvas not found. Please try again.');
+      return;
+    }
     setIsExportingPdf(true);
+    setPdfError(null);
 
     try {
       const element = documentRef.current;
+
+      // Temporarily ensure the element is fully visible for capture
+      const originalDisplay = element.style.display;
+      element.style.display = 'block';
+
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         backgroundColor: '#ffffff',
-        logging: false
+        logging: false,
+        windowWidth: 900,
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      element.style.display = originalDisplay;
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      let heightLeft = imgHeight;
-      let position = 0;
+      const imgWidthPx = canvas.width;
+      const imgHeightPx = canvas.height;
+      const ratio = pdfWidth / imgWidthPx;
+      const imgHeightMm = imgHeightPx * ratio;
 
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      let yOffset = 0;
+      let heightLeft = imgHeightMm;
+
+      // First page
+      pdf.addImage(imgData, 'JPEG', 0, yOffset, pdfWidth, imgHeightMm);
       heightLeft -= pdfHeight;
 
+      // Additional pages if content overflows
       while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
+        yOffset = heightLeft - imgHeightMm;
         pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        pdf.addImage(imgData, 'JPEG', 0, yOffset, pdfWidth, imgHeightMm);
         heightLeft -= pdfHeight;
       }
 
-      pdf.save(`${(activeDoc?.docTitle || 'document').toLowerCase().replace(/[^a-z0-9]/g, '_')}_${activeDoc?.docRefId || 'draft'}.pdf`);
+      const safeName = (activeDoc?.docTitle || 'document').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      pdf.save(`${safeName}_${activeDoc?.docRefId || 'draft'}.pdf`);
     } catch (err) {
       console.error('PDF Generation Error:', err);
-      window.print();
+      setPdfError('PDF export failed. Trying browser print...');
+      setTimeout(() => {
+        window.print();
+        setPdfError(null);
+      }, 500);
     } finally {
       setIsExportingPdf(false);
     }
@@ -171,58 +213,54 @@ export default function Step3OutputDashboard({
   return (
     <div className="space-y-6">
 
-      {/* Loading animation state */}
+      {/* Loading State */}
       {isGenerating ? (
-        <div className="py-20 text-center space-y-6 bg-slate-900/90 rounded-3xl border border-slate-800 p-8 shadow-2xl">
-          <div className="relative w-20 h-20 mx-auto">
-            <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20 animate-ping"></div>
-            <div className="relative w-20 h-20 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-indigo-600/40">
-              <Sparkles className="w-9 h-9 animate-spin-slow" />
+        <div className="py-20 text-center space-y-8 bg-slate-900/90 rounded-3xl border border-slate-800 p-8 shadow-2xl">
+          <div className="relative w-24 h-24 mx-auto">
+            <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20 animate-ping" />
+            <div className="relative w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-indigo-600/40">
+              <Sparkles className="w-10 h-10" />
             </div>
           </div>
 
           <div className="max-w-md mx-auto space-y-2">
-            <h3 className="text-xl font-bold text-white">
-              Generating Legal Paper & PDF...
-            </h3>
-            <p className="text-xs font-mono text-indigo-300">
-              {loadingStepText}
-            </p>
+            <h3 className="text-xl font-bold text-white">Generating Your Legal Document...</h3>
+            <p className="text-xs font-mono text-indigo-300">{loadingStepText}</p>
           </div>
 
-          <div className="max-w-md mx-auto bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
+          <div className="max-w-md mx-auto bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-800">
             <div 
-              className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 h-full transition-all duration-300 rounded-full"
+              className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 h-full transition-all duration-500 ease-out rounded-full"
               style={{ width: `${loadingProgress}%` }}
             />
           </div>
         </div>
       ) : activeDoc ? (
         <>
-          {/* Export & Action Toolbar */}
+          {/* Action Toolbar */}
           <div className="no-print bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col lg:flex-row items-center justify-between gap-4 shadow-xl">
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <button
                 onClick={onBackToForm}
-                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors shrink-0"
                 title="Edit Details"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div>
+              <div className="min-w-0">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Legal Paper Ready • Ref: {activeDoc.docRefId}
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                  Document Ready • Ref: {activeDoc.docRefId}
                 </span>
-                <h3 className="text-lg font-bold text-white truncate max-w-md">
+                <h3 className="text-base sm:text-lg font-bold text-white truncate">
                   {activeDoc.docTitle}
                 </h3>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 onClick={() => setEditMode(!editMode)}
                 className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
@@ -240,15 +278,15 @@ export default function Step3OutputDashboard({
                 className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-indigo-400" />}
-                <span>{copied ? 'Copied!' : 'Copy'}</span>
+                <span>{copied ? 'Copied!' : 'Copy Text'}</span>
               </button>
 
               <button
-                onClick={() => handleDownloadText('txt')}
+                onClick={handleDownloadText}
                 className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
               >
                 <FileText className="w-3.5 h-3.5 text-blue-400" />
-                <span>.TXT</span>
+                <span>Download .TXT</span>
               </button>
 
               <button
@@ -263,115 +301,127 @@ export default function Step3OutputDashboard({
               <button
                 onClick={handleExportPdf}
                 disabled={isExportingPdf}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-xl shadow-indigo-600/30 transition-all disabled:opacity-50 hover:scale-[1.02]"
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-xl shadow-indigo-600/30 transition-all disabled:opacity-60 hover:scale-[1.02] active:scale-[0.98]"
               >
                 {isExportingPdf ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>Rendering PDF...</span>
+                    <span>Creating PDF...</span>
                   </>
                 ) : (
                   <>
                     <FileCheck2 className="w-4 h-4 text-indigo-200" />
-                    <span>Download PDF Document</span>
+                    <span>Download PDF</span>
                   </>
                 )}
               </button>
             </div>
-
           </div>
 
-          {/* Persistent Attorney Warning Notice */}
+          {/* PDF Error Notice */}
+          {pdfError && (
+            <div className="no-print bg-amber-900/30 border border-amber-600/50 rounded-xl p-3 flex items-center gap-2 text-amber-300 text-xs">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              {pdfError}
+            </div>
+          )}
+
+          {/* Attorney Warning */}
           <div className="no-print">
             <PersistentWarningBox />
           </div>
 
-          {/* Formatted Legal Canvas (Captured for PDF and Printing) */}
+          {/* Legal Document Canvas — this is what gets captured for PDF */}
           <div 
             ref={documentRef}
             id="pdf-document-canvas"
-            className="bg-white text-slate-950 p-8 sm:p-14 rounded-2xl shadow-2xl border border-slate-300 font-legal print-document-only space-y-6 relative"
+            className="bg-white text-slate-950 p-8 sm:p-14 rounded-2xl shadow-2xl border border-slate-200 font-legal print-document-only space-y-6"
           >
             
-            {/* Header */}
-            <div className="text-center pb-6 border-b-2 border-slate-900 space-y-1">
+            {/* Document Header */}
+            <div className="text-center pb-6 border-b-2 border-slate-900 space-y-2">
               <div className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-                OFFICIAL PRE-LEGAL DRAFT • REF ID: {activeDoc.docRefId} • JURISDICTION: {activeDoc.jurisdictionName}
+                PRE-LEGAL DRAFT • REF: {activeDoc.docRefId} • {activeDoc.jurisdictionName}
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold font-serif-header text-slate-900 tracking-tight uppercase pt-1">
+              <h1 className="text-2xl sm:text-3xl font-bold font-serif-header text-slate-900 tracking-tight uppercase">
                 {activeDoc.docTitle}
               </h1>
-              <div className="text-xs font-serif italic text-slate-700 pt-1">
-                Executed and Effective as of {activeDoc.dateStr}
+              <div className="text-xs font-serif italic text-slate-600">
+                Effective as of {activeDoc.dateStr}
+              </div>
+              <div className="text-[10px] font-sans text-slate-500">
+                Style: {activeDoc.toneName} | Jurisdiction: {activeDoc.jurisdictionName}
               </div>
             </div>
 
-            {/* Recitals Section */}
-            <div className="space-y-2 text-sm leading-relaxed text-slate-900">
-              <h2 className="font-bold font-sans text-xs uppercase tracking-wider text-slate-800 pt-2 border-b border-slate-200 pb-1">
-                RECITALS AND PARTIES
+            {/* Recitals */}
+            <div className="space-y-2 text-sm leading-relaxed">
+              <h2 className="font-bold font-sans text-[11px] uppercase tracking-widest text-slate-700 border-b border-slate-200 pb-1">
+                Recitals and Parties
               </h2>
               {editMode ? (
                 <textarea
-                  rows={6}
+                  rows={7}
                   value={activeDoc.recitals}
                   onChange={(e) => setEditableDoc({ ...activeDoc, recitals: e.target.value })}
-                  className="w-full bg-slate-50 border border-indigo-400 p-3 rounded font-legal text-sm text-slate-900 focus:outline-none"
+                  className="w-full bg-slate-50 border border-indigo-400 p-3 rounded font-legal text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 />
               ) : (
-                <p className="whitespace-pre-line text-slate-800">
+                <p className="whitespace-pre-line text-slate-800 leading-relaxed">
                   {activeDoc.recitals}
                 </p>
               )}
             </div>
 
-            {/* Defined Terms Section */}
+            {/* Defined Terms */}
             {activeDoc.definedTerms && activeDoc.definedTerms.length > 0 && (
-              <div className="space-y-3 pt-4">
-                <h2 className="font-bold font-sans text-xs uppercase tracking-wider text-slate-800 pb-1 border-b border-slate-200">
-                  DEFINED TERMS
+              <div className="space-y-3">
+                <h2 className="font-bold font-sans text-[11px] uppercase tracking-widest text-slate-700 border-b border-slate-200 pb-1">
+                  Defined Terms
                 </h2>
-                <div className="space-y-2 bg-slate-50 p-4 rounded-lg border border-slate-200 text-xs">
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-2">
                   {activeDoc.definedTerms.map((dt, idx) => (
-                    <div key={idx} className="leading-relaxed">
-                      <strong className="text-slate-900 font-sans font-bold text-xs uppercase tracking-wide">"{dt.term}"</strong>: {dt.definition}
+                    <div key={idx} className="text-sm leading-relaxed text-slate-800">
+                      <strong className="font-sans font-bold text-xs uppercase tracking-wide text-slate-900">"{dt.term}"</strong>
+                      <span className="text-slate-700"> — {dt.definition}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Operative Clauses Section */}
+            {/* Operative Clauses */}
             {activeDoc.operativeClauses && activeDoc.operativeClauses.length > 0 && (
-              <div className="space-y-4 pt-4">
-                <h2 className="font-bold font-sans text-xs uppercase tracking-wider text-slate-800 pb-1 border-b border-slate-200">
-                  OPERATIVE CLAUSES AND STIPULATIONS
+              <div className="space-y-4">
+                <h2 className="font-bold font-sans text-[11px] uppercase tracking-widest text-slate-700 border-b border-slate-200 pb-1">
+                  Operative Clauses
                 </h2>
 
                 {activeDoc.operativeClauses.map((clause, idx) => (
-                  <div key={idx} className="space-y-1.5 p-3 rounded hover:bg-slate-50 transition-colors">
+                  <div key={idx} className="space-y-2 pl-4 border-l-2 border-slate-200 py-1">
                     <div className="font-bold font-sans text-xs text-slate-900 flex items-center justify-between">
                       <span>{clause.num}</span>
                       <button
                         onClick={() => setSelectedClauseInspection(clause)}
                         className="no-print text-[10px] text-indigo-600 font-normal hover:underline flex items-center gap-1"
                       >
-                        <Eye className="w-3 h-3" /> Audit Clause
+                        <Eye className="w-3 h-3" /> Inspect Clause
                       </button>
                     </div>
                     {editMode ? (
                       <textarea
-                        rows={3}
+                        rows={4}
                         value={clause.content}
                         onChange={(e) => {
-                          const updatedClauses = [...activeDoc.operativeClauses];
-                          updatedClauses[idx].content = e.target.value;
+                          const updatedClauses = activeDoc.operativeClauses.map((c, i) =>
+                            i === idx ? { ...c, content: e.target.value } : c
+                          );
                           setEditableDoc({ ...activeDoc, operativeClauses: updatedClauses });
                         }}
-                        className="w-full bg-slate-50 border border-indigo-400 p-2 rounded font-legal text-xs text-slate-900 focus:outline-none"
+                        className="w-full bg-slate-50 border border-indigo-400 p-2 rounded font-legal text-sm text-slate-900 focus:outline-none"
                       />
                     ) : (
-                      <p className="text-xs leading-relaxed text-slate-800">
+                      <p className="text-sm leading-relaxed text-slate-800 font-legal">
                         {clause.content}
                       </p>
                     )}
@@ -380,111 +430,110 @@ export default function Step3OutputDashboard({
               </div>
             )}
 
-            {/* Governing Law & Dispute Resolution */}
-            <div className="space-y-2 pt-4 border-t border-slate-200">
-              <h2 className="font-bold font-sans text-xs uppercase tracking-wider text-slate-800">
-                GOVERNING LAW AND ARBITRATION
+            {/* Governing Law */}
+            <div className="space-y-2 pt-2 border-t border-slate-200">
+              <h2 className="font-bold font-sans text-[11px] uppercase tracking-widest text-slate-700 pb-1">
+                Governing Law and Dispute Resolution
               </h2>
               {editMode ? (
                 <textarea
                   rows={4}
                   value={activeDoc.disputeResolution}
                   onChange={(e) => setEditableDoc({ ...activeDoc, disputeResolution: e.target.value })}
-                  className="w-full bg-slate-50 border border-indigo-400 p-3 rounded font-legal text-xs text-slate-900 focus:outline-none"
+                  className="w-full bg-slate-50 border border-indigo-400 p-3 rounded font-legal text-sm text-slate-900 focus:outline-none"
                 />
               ) : (
-                <p className="text-xs leading-relaxed text-slate-800 whitespace-pre-line">
+                <p className="text-sm leading-relaxed text-slate-800 whitespace-pre-line font-legal">
                   {activeDoc.disputeResolution}
                 </p>
               )}
             </div>
 
-            {/* Signature Blocks */}
+            {/* Signature Section */}
             <div className="pt-10 space-y-6 border-t-2 border-slate-900">
-              <p className="text-xs font-serif italic text-slate-700 text-center">
+              <p className="text-sm font-serif italic text-slate-700 text-center leading-relaxed">
                 {activeDoc.closingText}
               </p>
 
-              <div className="grid grid-cols-2 gap-10 pt-4 text-xs font-sans">
-                {/* Party A Signature */}
-                <div className="space-y-4">
-                  <div className="font-bold uppercase tracking-wider text-slate-900">
-                    PARTY A: {activeDoc.partyA}
+              <div className="grid grid-cols-2 gap-10 pt-6 text-xs font-sans">
+                {/* Party A */}
+                <div className="space-y-3">
+                  <div className="font-bold uppercase tracking-wider text-slate-900 text-[11px]">
+                    Party A: {activeDoc.partyA}
                   </div>
-                  <div className="border-b-2 border-slate-900 pb-1 pt-8 text-slate-400 font-mono text-[10px]">
-                    Authorized Signature
-                  </div>
-                  <div className="space-y-1 text-slate-700 text-[11px]">
-                    <div>By: ___________________________</div>
+                  <div className="border-b-2 border-slate-800 pt-10 pb-1" />
+                  <div className="space-y-1.5 text-slate-700 text-[11px]">
+                    <div>Authorized Signature</div>
                     <div>Name: {activeDoc.partyA}</div>
                     <div>Title: Authorized Signatory</div>
                     <div>Date: {activeDoc.dateStr}</div>
                   </div>
                 </div>
 
-                {/* Party B Signature */}
-                <div className="space-y-4">
-                  <div className="font-bold uppercase tracking-wider text-slate-900">
-                    PARTY B: {activeDoc.partyB}
+                {/* Party B */}
+                <div className="space-y-3">
+                  <div className="font-bold uppercase tracking-wider text-slate-900 text-[11px]">
+                    Party B: {activeDoc.partyB}
                   </div>
-                  <div className="border-b-2 border-slate-900 pb-1 pt-8 text-slate-400 font-mono text-[10px]">
-                    Authorized Signature
-                  </div>
-                  <div className="space-y-1 text-slate-700 text-[11px]">
-                    <div>By: ___________________________</div>
+                  <div className="border-b-2 border-slate-800 pt-10 pb-1" />
+                  <div className="space-y-1.5 text-slate-700 text-[11px]">
+                    <div>Authorized Signature</div>
                     <div>Name: {activeDoc.partyB}</div>
                     <div>Title: Authorized Signatory</div>
                     <div>Date: {activeDoc.dateStr}</div>
                   </div>
                 </div>
               </div>
-
             </div>
 
-            {/* Footer Watermark */}
-            <div className="pt-8 text-center text-[10px] text-slate-400 font-sans border-t border-slate-200 space-y-0.5">
-              <div>LegalGen AI Pre-Legal Document System • Reference ID: {activeDoc.docRefId}</div>
-              <div className="italic text-slate-400">Notice: Attorney review required prior to signing.</div>
+            {/* Document Footer */}
+            <div className="pt-6 text-center text-[10px] text-slate-400 font-sans border-t border-slate-200 space-y-0.5">
+              <div>LegalGen AI Pre-Legal Document System • Ref: {activeDoc.docRefId}</div>
+              <div className="italic">NOTICE: This is a pre-legal draft template. Please have it reviewed by a licensed attorney before signing.</div>
             </div>
 
           </div>
 
-          {/* Clause Audit Modal */}
+          {/* Clause Inspection Modal */}
           {selectedClauseInspection && (
             <div className="no-print fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                   <span className="font-bold text-white text-sm flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    Clause Enforceability Audit
+                    Clause Audit Report
                   </span>
                   <button
                     onClick={() => setSelectedClauseInspection(null)}
-                    className="text-slate-400 hover:text-white text-xs font-bold px-2 py-1 bg-slate-800 rounded"
+                    className="text-slate-400 hover:text-white text-xs font-bold px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
                   >
-                    Close
+                    Close ✕
                   </button>
                 </div>
 
                 <div>
-                  <h4 className="font-bold text-indigo-300 text-xs uppercase mb-1">{selectedClauseInspection.num}</h4>
+                  <h4 className="font-bold text-indigo-300 text-xs uppercase mb-2">{selectedClauseInspection.num}</h4>
                   <p className="text-slate-300 text-xs bg-slate-950 p-3 rounded border border-slate-800 leading-relaxed mb-4">
                     {selectedClauseInspection.content}
                   </p>
 
-                  <div className="space-y-2 text-xs">
+                  <div className="space-y-3 text-xs">
                     <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-                      <Check className="w-4 h-4" /> Enforceability Rating: High (Standard Precedent)
+                      <Check className="w-4 h-4" /> 
+                      <span>Enforceability Rating: High (Standard Precedent)</span>
                     </div>
                     <p className="text-slate-400 leading-relaxed">
-                      This clause adheres to established commercial precedents under {activeDoc.jurisdictionName}.
+                      This clause follows established commercial legal precedents recognized under {activeDoc.jurisdictionName} law. It covers standard obligations, exclusions, and remedies.
                     </p>
+                    <div className="bg-indigo-950/50 border border-indigo-800/50 rounded-lg p-3 text-indigo-300">
+                      <strong>Tip:</strong> Have this clause reviewed by a licensed attorney if there are complex facts or if large sums of money are involved.
+                    </div>
                   </div>
                 </div>
 
                 <button
                   onClick={() => setSelectedClauseInspection(null)}
-                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl"
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-colors"
                 >
                   Return to Document
                 </button>

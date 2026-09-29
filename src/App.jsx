@@ -15,10 +15,9 @@ export default function App() {
   const generatorRef = useRef(null);
 
   const handleStartGenerator = (docId = null) => {
-    if (docId) {
-      setPreselectedDocId(docId);
-    }
+    setPreselectedDocId(docId);
     setView('generator');
+    setCurrentStep(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -36,9 +35,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       
-      {/* Dynamic Header depending on View */}
+      {/* Navigation */}
       {view === 'landing' ? (
         <Navbar onStartGenerator={() => handleStartGenerator()} />
       ) : (
@@ -50,22 +49,16 @@ export default function App() {
         />
       )}
 
-      {/* Main Content Area */}
+      {/* Page Content */}
       <main className="flex-grow">
         {view === 'landing' ? (
           <div>
-            {/* Landing Page Hero Section */}
             <Hero onStartGenerator={() => handleStartGenerator()} />
-
-            {/* Core Features Grid */}
             <FeaturesGrid />
-
-            {/* Template Explorer Gallery */}
             <TemplateExplorer onSelectTemplate={(docId) => handleStartGenerator(docId)} />
           </div>
         ) : (
-          <div className="py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-            {/* Main Legal Paper Generator Workstation */}
+          <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
             <GeneratorContainer 
               ref={generatorRef}
               preselectedDocId={preselectedDocId}
@@ -75,7 +68,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer with Legal Disclaimer */}
+      {/* Footer */}
       <Footer onStartGenerator={() => handleStartGenerator()} />
 
     </div>
